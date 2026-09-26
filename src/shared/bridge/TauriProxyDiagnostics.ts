@@ -1,16 +1,10 @@
 // Реализация IProxyDiagnostics для десктопа. Вынесена из TauriBridge.ts ради размера.
-// Инвариант 1 цел: файл внутри src/bridge, его импортирует только TauriBridge,
-// а тот отсекается псевдопутём '@bridge-impl'.
 
 import { invoke } from '@tauri-apps/api/core'
 
 import type { IProxyDiagnostics, ProxyOutcome, ProxyProbe, ProxyStatus } from './IBridge'
 
-/**
- * Что отдаёт Rust; сериализатор там настроен на camelCase. Поля reachable в ответе
- * нет: в Rust это то же самое, что outcome === 'applied', а два источника одной правды
- * разошлись бы. В контракте поле есть: карточке удобнее читать его, а не строки.
- */
+/** Что отдаёт Rust (camelCase). Поля reachable в ответе нет: оно равно outcome === 'applied', а два источника правды разошлись бы. */
 type RawProxyProbe = {
   outcome: ProxyOutcome
   server: string

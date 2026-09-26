@@ -49,19 +49,12 @@ function briefFacts(brief: MediaBrief): string {
   return parts.join(' · ')
 }
 
-/**
- * Тайтл ещё не вышел. Знак берётся из ответа каталога, а не из года: у анонсов
- * год бывает известен задолго до выхода, и по нему анонс не отличить от
- * вышедшего в тот же сезон.
- */
+/** Тайтл ещё не вышел. Знак из ответа каталога, а не года: у анонсов год известен задолго до выхода. */
 function notOut(brief: MediaBrief): boolean {
   return brief.status === SOON_STATUS
 }
 
-/**
- * Своя закладка: сначала местный список, и только потом ответ сервера.
- * Без входа ownEntry пуст всегда, а свой список у нас есть и так (пункт 3.14).
- */
+/** Своя закладка: сначала местный список, потом ответ сервера — свой список у нас есть и без входа. */
 function markText(brief: MediaBrief): string | null {
   const mine = getEntry(brief.mediaId)
   if (mine) return statusWord(mine.status)
@@ -77,11 +70,7 @@ function ownSeen(brief: MediaBrief): number {
   return brief.ownEntry?.progress ?? 0
 }
 
-/**
- * Строка счёта на постере: свой прогресс, а без него — размер тайтла.
- * У анонса размер молчит: «0 эп.» и «12 эп.» у невышедшего тайтла означают
- * не одно и то же, а плитка их показывала одинаково.
- */
+/** Счёт на постере: свой прогресс, иначе размер тайтла; у анонса молчит — «0 эп.» не то же, что «12 эп.». */
 function ownText(brief: MediaBrief): string | null {
   const parts = partsCount(brief)
   const seen = ownSeen(brief)
@@ -112,11 +101,7 @@ function pickTitle(brief: MediaBrief): string {
   )
 }
 
-/**
- * Что источникам нужно знать о тайтле, чтобы ответить про доступность.
- * Собирается так же, как его собирает плеер: номера для тех, кто входит по ним,
- * названия по убыванию пригодности — для тех, кто ищет словами.
- */
+/** Что источникам нужно для ответа о доступности: номера и названия по убыванию пригодности. Как в плеере. */
 export function toPlayAsk(brief: MediaBrief): PlayAsk {
   const titles = [brief.romaji, brief.english, brief.native, peekRussianName(brief.mediaId)]
 

@@ -11,7 +11,8 @@
 и Шикимори, описания там же, персонажи и авторы — Шикимори, музыка —
 AnimeThemes, видео — Aniliberty и Kodik.
 
-Список односторонний: он приезжает из AniList по входу и с Шикимори по нику.
+Список односторонний: он приезжает из AniList по входу, с Шикимори по нику
+и файлом выгрузки MyAnimeList (тот же файл отдаёт Шикимори).
 Правки живут на устройстве и на сервер не уходят — ни очереди, ни отправщика
 в коде нет. Наружу список попадает выгрузкой в XML и копией в облако,
 по действию человека. Подробно — `STORAGE.md`.
@@ -240,8 +241,8 @@ shared/api/ → shared/bridge/
   ├─ person-title.ts     русские имена людей
   ├─ rich-text.ts        описания в разметку показа
   └─ playable.ts         метка доступности видео: очередь и работники
-collection.ts  ← api/anilist-list.ts, api/shikimori-list.ts; → snapshot.ts
-mal-xml.ts     ← collection.ts;        → app/save-file.ts
+collection.ts  ← api/anilist-list.ts, api/shikimori-list.ts, api/mal-import.ts; → snapshot.ts
+mal-xml.ts     сборка и разбор опися MAL; файл пишет app/save-file.ts, читает app/load-file.ts
 cloud.ts       ← collection.ts;        → api/yandex-disk.ts
 snapshot.ts → store-chain.ts   общее звено записей
 
@@ -265,9 +266,12 @@ snapshot.ts → store-chain.ts   общее звено записей
 (список становится ровно таким, как на сервере). Замещение спрашивает
 подтверждение, слияние нет.
 
-Тот же выбор стоит при переносе с Шикимори (`pullFromShikimori`), с двумя
-оговорками: хозяин списка не меняется, и ответ забирается целиком до
-изменения памяти. Рядом — `unlinkCollection` и `forgetCollection`.
+Тот же выбор стоит при переносе с Шикимори (`pullFromShikimori`) и из файла
+выгрузки MAL (`pullFromMalFile`), с двумя оговорками: хозяин списка не
+меняется, и ответ забирается целиком до изменения памяти. У файла своя
+черта: метки правки в записи может не быть (выгрузка Шикимори её не пишет),
+и тогда запись считается старейшей. Рядом — `unlinkCollection`
+и `forgetCollection`.
 
 ### media-title.ts
 
@@ -281,7 +285,9 @@ snapshot.ts → store-chain.ts   общее звено записей
 ### Пути наружу
 
 - `core/mal-xml.ts` собирает опись в формате MyAnimeList, `app/save-file.ts`
-  отдаёт её оболочке.
+  отдаёт её оболочке. В обратную сторону тот же модуль разбирает чужой
+  файл, `app/load-file.ts` читает его с диска (gzip распознаётся по подписи),
+  а `api/mal-import.ts` сводит номера MAL с AniList.
 - `core/cloud.ts` и `core/cloud-file.ts` кладут копию списка в облако
   и забирают обратно слиянием или замещением.
 

@@ -1,6 +1,4 @@
 // Главные работы автора: постеры для полки в его карточке.
-// Отдельно от anilist-person.ts: там карточка человека с разбором ролей,
-// и дело здесь самостоятельное.
 
 import { Logger } from '../utils/logger'
 import { anilistQuery } from './anilist'
@@ -8,10 +6,8 @@ import { anilistQuery } from './anilist'
 /** Сколько работ просить: полка листается, но бесконечной ей быть незачем. */
 const WORKS_LIMIT = 14
 
-// Сортировка по популярности: слово «главные» у AniList не выражено никак,
-// а временной порядок вывел бы в начало случайные ранние подработки.
-// Вид вписан словом ANIME: манга в полке открыться негде — карточки манги
-// в приложении пока нет.
+// Сортировка по популярности («главные» у AniList не выражены); вид вписан словом ANIME:
+// карточки манги в приложении нет.
 const STAFF_WORKS_QUERY = `query ($id: Int!, $perPage: Int!) {
   Staff(id: $id) {
     staffMedia(sort: [POPULARITY_DESC], type: ANIME, page: 1, perPage: $perPage) {
@@ -74,13 +70,7 @@ function countOrNull(value: number | null | undefined): number | null {
   return typeof value === 'number' && value > 0 ? value : null
 }
 
-/**
- * Главные работы автора по его номеру. Пустой список — штатный исход:
- * у части людей роли у AniList не расставлены вовсе, и карточка жива без полки.
- *
- * Один тайтл — одна строка: грани приходят по одной на должность,
- * и без склейки полка была бы из одного аниме подряд.
- */
+/** Главные работы автора по его номеру; пустой список — штатный исход. Один тайтл — одна строка: грани склеиваются. */
 export async function fetchStaffWorks(personId: number): Promise<StaffWork[]> {
   if (!Number.isFinite(personId) || personId <= 0) return []
 

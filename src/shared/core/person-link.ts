@@ -1,16 +1,5 @@
-// Ссылка на человека из описания: номер у Шикимори -> наша карточка человека.
-//
-// С тайтлами такого файла не нужно: номер аниме у Шикимори и есть номер
-// MyAnimeList, и карточка находится одним запросом. У людей номера свои, и ни
-// AniList, ни MyAnimeList их не знают. Подпись ссылки тоже не помогает: она почти
-// всегда русская, а поиск AniList по-русски не ищет вовсе.
-//
-// Три пути по возрастанию цены:
-//   память сопоставления — люди открытого тайтла разрешаются мгновенно;
-//   склад — соответствие, найденное когда-то раньше;
-//   сеть — детали персоны у Шикимори, затем поиск по имени на AniList.
-//
-// Разрешение живёт в ядре, а не в надстройке: сеть и склад — не дело экранов.
+// Ссылка на человека из описания: номер Шикимори -> наша карточка человека.
+// Пути по возрастанию цены: память сопоставления, склад, сеть (Шикимори → поиск на AniList).
 
 import type { PersonRef } from '../api/anilist-people'
 import type { PersonTarget } from '../api/anilist-person'
@@ -22,10 +11,7 @@ import { dbGet, dbSet } from './db'
 import { peekPersonByShiki, rememberRussianPerson, type PersonKind } from './person-title'
 import type { MediaCacheRecord } from './types'
 
-/**
- * Префиксы ключей на складе. Цифра — версия формы записи. Склад общий
- * с остальными кэшами, поэтому ключ обязан быть узнаваем.
- */
+/** Префиксы ключей на складе; цифра — версия формы записи, ключ обязан быть узнаваем. */
 const KEY_PREFIX: Record<PersonKind, string> = { character: 'SHPC1_', staff: 'SHPS1_' }
 
 /** Знание этого запуска: номер Шикимори -> готовая цель показа. */
@@ -65,10 +51,7 @@ async function writeCache(who: PersonKind, shikiId: number, data: PersonTarget):
   await dbSet('mediaCache', { key: cacheKey(who, shikiId), data, ts: Date.now() })
 }
 
-/**
- * Два шага по сети: детали персоны у Шикимори дают латинское и японское имя,
- * по ним ищется человек на AniList.
- */
+/** Два шага по сети: детали у Шикимори дают имена, по ним ищется человек на AniList. */
 async function resolveOverNet(who: PersonKind, shikiId: number): Promise<PersonTarget | null> {
   const details = await fetchShikiPersonDetails(
     who === 'character' ? 'characters' : 'people',
@@ -86,8 +69,7 @@ async function resolveOverNet(who: PersonKind, shikiId: number): Promise<PersonT
   memory.set(memoryKey(who, shikiId), target)
   await writeCache(who, shikiId, target)
 
-  // Русское имя и описание уже в руках: отдаём складу карточек, чтобы окошко
-  // открылось по-русски и не спрашивало то же самое второй раз.
+  // Русское имя уже в руках: отдаём складу, чтобы окошко открылось по-русски и не спрашивало дважды.
   if (details.russian) {
     await rememberRussianPerson(who, found, {
       russian: details.russian,
@@ -120,11 +102,8 @@ async function resolveOne(who: PersonKind, shikiId: number): Promise<PersonTarge
 }
 
 /**
- * Карточка человека по номеру Шикимори или `null`, если соответствия нет.
- *
- * Промахи не запоминаются нарочно: отказ бывает от лежащего зеркала, а не от
- * отсутствия человека, и одна неудача навсегда сделала бы ссылку внешней.
- * Повтор стоит одного нажатия и случается только по воле человека.
+ * Карточка человека по номеру Шикимори или `null`. Промахи не запоминаются нарочно:
+ * отказ бывает от лежащего зеркала, и одна неудача сделала бы ссылку внешней навсегда.
  */
 export async function resolveShikiPerson(
   who: PersonKind,

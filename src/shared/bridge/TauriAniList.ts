@@ -1,6 +1,4 @@
 // Реализация IAniList для десктопа. Вынесена из TauriBridge.ts ради размера.
-// Инвариант 1 цел: файл внутри src/bridge, его импортирует только TauriBridge,
-// а тот отсекается псевдопутём '@bridge-impl'.
 
 import { invoke } from '@tauri-apps/api/core'
 

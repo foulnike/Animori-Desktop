@@ -1,6 +1,5 @@
 // Отборы и сортировки по коллекции: только чтение памяти, без копий записей.
-// Ни сети, ни хранилища здесь нет: перебирается то, что уже в памяти.
-// Менять записи через этот файл нельзя, для того есть хозяин в collection.ts.
+// Менять записи нельзя — хозяин в collection.ts.
 
 import { adultAllowed } from './adult'
 import { eachEntry, entryCount } from './collection'
@@ -14,25 +13,11 @@ export interface EntryFilter {
   onlyRated?: boolean
   onlyStarted?: boolean
   updatedAfter?: number
-  /**
-   * Слово для поиска по названиям из снимка: ромадзи и английское.
-   * Регистр не важен. Русских названий в памяти списка нет.
-   */
+  /** Слово для поиска по названиям из снимка (ромадзи и английское); регистр не важен. */
   word?: string
   /** Только взрослое или только остальное. Без условия — всё подряд. */
   isAdult?: boolean
-  /**
-   * Прятать взрослое, пока тумблер показа выключен.
-   *
-   * Отдельное условие, а не следствие `isAdult`: то поле выбирает «только
-   * такое», а это — «никакого такого». Смешать их значило бы потерять
-   * возможность отобрать взрослое отдельно.
-   *
-   * Условие включают там, где список показывают: свои закладки и сбор номеров
-   * для календаря. По умолчанию его нет нарочно — на отборе стоят и внутренние
-   * вопросы вроде «есть ли запись у этого тайтла», где прятать значит соврать
-   * о своём же списке.
-   */
+  /** Прятать взрослое при выключенном тумблере; по умолчанию выключено — внутренние вопросы не врут. */
   hideAdult?: boolean
 }
 
@@ -63,10 +48,7 @@ function hasWord(title: string | null | undefined, word: string): boolean {
   return title.toLowerCase().includes(word)
 }
 
-/**
- * Проверяет одну запись. Отдельная функция: одно и то же условие
- * нужно и перебору, и подсчёту, и странице — расхождение видно как ошибка чисел.
- */
+/** Проверяет одну запись; одна функция на перебор, подсчёт и страницу — расхождение видно в числах. */
 export function matchesEntry(entry: SnapshotEntry, filter: EntryFilter = EMPTY_FILTER): boolean {
   if (filter.status && filter.status.length > 0) {
     if (entry.status === null || !filter.status.includes(entry.status)) return false
@@ -92,10 +74,7 @@ export function matchesEntry(entry: SnapshotEntry, filter: EntryFilter = EMPTY_F
   return true
 }
 
-/**
- * Ленивый перебор подходящих записей. Массива не создаёт вовсе:
- * вызывающий вправе остановиться на любой записи.
- */
+/** Ленивый перебор подходящих записей, без промежуточного массива. */
 export function* filterEntries(filter: EntryFilter = EMPTY_FILTER): Generator<SnapshotEntry> {
   for (const entry of eachEntry()) {
     if (matchesEntry(entry, filter)) yield entry
@@ -121,10 +100,7 @@ function compare(a: SnapshotEntry, b: SnapshotEntry, key: SortKey): number {
   return a.updatedAt - b.updatedAt
 }
 
-/**
- * Отобранные записи одним массивом ссылок, при надобности отсортированные
- * и урезанные до страницы. Ссылки, а не копии: правка видна через них сразу.
- */
+/** Отобранные записи массивом ссылок (правка видна сразу), при надобности сортировка и страница. */
 export function selectEntries(
   filter: EntryFilter = EMPTY_FILTER,
   sort?: EntrySort,
@@ -155,13 +131,7 @@ export function findEntry(filter: EntryFilter): SnapshotEntry | undefined {
   return undefined
 }
 
-/**
- * Сколько записей в каждом статусе. Экран списков рисует этим числа
- * у закладок. Запись без статуса попадает в UNKNOWN, а не теряется.
- *
- * Отбор обязательно тот же, что у строк: иначе число у закладки
- * считало бы записи, которых на этом экране не увидеть.
- */
+/** Сколько записей в каждом статусе; без статуса — UNKNOWN. Отбор тот же, что у строк. */
 export function countByStatus(filter: EntryFilter = EMPTY_FILTER): Map<string, number> {
   const totals = new Map<string, number>()
   for (const entry of eachEntry()) {

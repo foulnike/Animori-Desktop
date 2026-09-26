@@ -1,6 +1,5 @@
 // Клиент anime365 / smotret-anime: русские названия и описания по MAL ID, только аниме.
-// Источник нестабилен (403, Cloudflare 520-524): отсюда бэкофф, отсрочка зеркал и стоп на сессию.
-// Трактовка кодов тут, а не в мосте: «403 — блокировка, а не пустота» — знание прикладное.
+// Источник нестабилен (403, Cloudflare 520-524): бэкофф, отсрочка зеркал, стоп на сессию.
 
 import { Bridge, BridgeHttpError } from '@/bridge'
 import { ANIME365_DOMAINS, ANIME365_FAIL_LIMIT } from '../core/constants'
@@ -18,10 +17,7 @@ const BACKOFF_MS = 15000
 /** Таймаут одного зеркала. */
 const MIRROR_TIMEOUT_MS = 5000
 
-/**
- * Полная запись толстого сериала — 229 КБ и секунда, эти три поля — 2,5 КБ и 200 мс.
- * При правке форма ответа обязана остаться прежней: data[0].titles.ru, .url, .descriptions[].value.
- */
+/** Лёгкая форма ответа; при правке обязаны остаться data[0].titles.ru, .url, .descriptions[].value. */
 const SERIES_FIELDS = 'titles,url,descriptions'
 
 /** Сколько раз повторяем запрос к молчащему зеркалу, прежде чем идти к следующему. */
@@ -40,10 +36,7 @@ let anime365Disabled = false
 /** Молчания подряд по каждому адресу. Любой ответ обнуляет. */
 const silenceStreak = new Map<string, number>()
 
-/**
- * До какого времени адрес отложен. Только в памяти, в хранилище не попадает.
- * Доступность адреса — свойство сети вокруг человека прямо сейчас, а не его настройка.
- */
+/** До какого времени адрес отложен; только в памяти: доступность — свойство сети сейчас. */
 const deferredUntil = new Map<string, number>()
 
 /** Собирает абсолютный адрес для конкретного зеркала. */
@@ -51,10 +44,7 @@ function mirrorUrl(domain: string, path: string): string {
   return 'https://' + domain + path
 }
 
-/**
- * Имя источника для учёта доступности конкретного зеркала.
- * Собирается здесь, а не в net-health: тот модуль по замыслу не знает адресов.
- */
+/** Имя источника для учёта зеркала; здесь, а не в net-health: тот адресов не знает. */
 function netId(domain: string): string {
   return `anime365:${domain}`
 }
@@ -64,10 +54,7 @@ export function isAnime365Disabled(): boolean {
   return anime365Disabled
 }
 
-/**
- * Активна ли пауза по лимиту или бэкоффу.
- * Очередь перевода спрашивает это наравне с Shikimori: оба источника в одной цепочке.
- */
+/** Активна ли пауза по лимиту или бэкоффу: очередь перевода спрашивает это наравне с Shikimori. */
 export function isAnime365RateLimited(): boolean {
   return anime365Limiter.isPaused()
 }
@@ -87,10 +74,7 @@ export function getAnime365DeferredDomains(): string[] {
   return list
 }
 
-/**
- * Порядок перебора: сначала не отложенные адреса.
- * Если отложены все, идём по полному списку: отсрочка не вправе выключить источник.
- */
+/** Порядок перебора: сначала не отложенные; если отложены все — полный список. */
 function pickDomains(): readonly string[] {
   const now = Date.now()
   const live = ANIME365_DOMAINS.filter((domain) => (deferredUntil.get(domain) ?? 0) <= now)
@@ -121,10 +105,7 @@ function noteSilence(domain: string): void {
   )
 }
 
-/**
- * Молчание, а не отказ: сеть не дошла или ответа не дождались — повторять осмысленно.
- * Отмену сюда не включаем: это наше собственное поведение.
- */
+/** Молчание, а не отказ: повторять осмысленно. Отмена сюда не входит — она наша собственная. */
 function isSilence(e: unknown): boolean {
   return e instanceof BridgeHttpError && (e.kind === 'network' || e.kind === 'timeout')
 }
@@ -158,13 +139,8 @@ interface Anime365Series {
   url?: string
 }
 
-/**
- * Грузит русский тайтл и описание с anime365 по MAL ID. Только аниме:
- * у источника это и так единственный раздел.
- *
- * @param attempt Номер попытки после 429, считая с нуля. Служебный параметр рекурсии.
- * @returns null при отсутствии данных, soft-block или сбое всех зеркал.
- */
+/** Грузит русский тайтл и описание с anime365 по MAL ID. @param attempt Номер попытки после 429,
+ * считая с нуля; служебный параметр рекурсии. */
 export async function fetchAnime365ByMal(
   malId: number | null,
   attempt = 0,

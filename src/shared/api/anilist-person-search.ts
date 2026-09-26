@@ -1,12 +1,5 @@
-// Поиск человека на AniList по имени. Отдельно от anilist-person.ts: там карточка
-// по известному номеру, здесь поиск самого номера.
-//
-// Нужен ссылкам на людей из описаний: у Шикимори номера людей свои, ни AniList,
-// ни MyAnimeList их не знают, и единственный мост между ними — имя.
-//
-// Латиница спрашивается первой, кандзи вторым заходом: поиск AniList знает оба
-// написания, но по латинице отвечает точнее. Второй заход важен ровно там,
-// где чтения расходятся: один человек у одних «Koshimaru», у других «Etsushimaru».
+// Поиск человека на AniList по имени (карточка по номеру — anilist-person.ts). Нужен ссылкам на
+// людей из описаний: номера Шикимори никто не знает, мост — имя.
 
 import { Logger } from '../utils/logger'
 import { scoreNameMatch, type NameTarget } from '../utils/name-match'
@@ -116,12 +109,7 @@ async function askAniList(kind: 'character' | 'staff', search: string): Promise<
   }
 }
 
-/**
- * Лучший кандидат или `null`. Стороны в сравнении поменяны местами против
- * обычного: здесь искомое — имя с Шикимори, а кандидаты приехали с AniList.
- * Скоринг от порядка не зависит: латиница сравнивается с латиницей,
- * кандзи с кандзи.
- */
+/** Лучший кандидат или `null`; скоринг симметричен: латиница с латиницей, кандзи с кандзи. */
 function pickBest(list: PersonRef[], target: NameTarget): PersonRef | null {
   let best: PersonRef | null = null
   let bestScore = 0
@@ -137,11 +125,8 @@ function pickBest(list: PersonRef[], target: NameTarget): PersonRef | null {
   return bestScore >= SEARCH_SCORE ? best : null
 }
 
-/**
- * Ищет человека на AniList по именам с Шикимори.
- * @param kind Кем он у нас откроется: персонажем или автором.
- * @param ask Латинское и японское имя; первое спрашивается раньше.
- */
+/** Ищет человека на AniList по именам с Шикимори. @param kind Кем он у нас откроется: персонажем
+ * или автором. @param ask Латинское и японское имя; первое спрашивается раньше. */
 export async function findAniListPerson(
   kind: 'character' | 'staff',
   ask: PersonNameAsk,

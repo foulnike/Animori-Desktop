@@ -1,6 +1,5 @@
-// Внешние ссылки карточки: номера под описанием ведут туда, откуда взяты.
+// Внешние ссылки карточки: адреса собираются из номеров, никакой сети это не стоит.
 // Редактора своих ссылок нет сознательно: набор источников известен заранее.
-// Адреса собираются из номеров, никакой сети это не стоит.
 
 import { ANIME365_DOMAINS, SHIKI_DOMAINS } from '@/core/constants'
 
@@ -10,10 +9,7 @@ const ANILIST_HOST = 'anilist.co'
 /** Имя узла MyAnimeList. */
 const MAL_HOST = 'myanimelist.net'
 
-/**
- * Первое зеркало Шикимори. Запасное имя не украшение: взятие по номеру
- * считается возможно пустым, а ссылка без узла вела бы в никуда.
- */
+/** Первое зеркало Шикимори с запасным именем: ссылка без узла вела бы в никуда. */
 const SHIKI_HOST = SHIKI_DOMAINS[0] ?? 'shikimori.io'
 
 /** Раздел каталога: у AniList и MAL путь аниме называется одинаково. */
@@ -51,11 +47,7 @@ function atDomain(url: string, domains: readonly string[]): boolean {
   return domains.some((domain) => url.includes(domain))
 }
 
-/**
- * Собирает хвост описания: номера каталогов и русские источники.
- * Номер Шикимори считается равным номеру MAL: на этом же допущении
- * стоит весь поиск на кириллице.
- */
+/** Собирает хвост описания. Номер Шикимори считается равным MAL — на этом допущении стоит весь поиск. */
 export function mediaLinks(input: MediaLinksInput): MediaLink[] {
   const list: MediaLink[] = []
   const malId = input.malId !== null && input.malId > 0 ? input.malId : null

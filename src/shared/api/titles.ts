@@ -1,14 +1,5 @@
 // Резолвер русского названия и описания: основной источник, затем фоллбэк.
-// Отдельно от shikimori.ts и anime365.ts: зависит от обоих, иначе цикл внутри api/.
-// Настройки читаются в момент вызова, а не при импорте.
-//
-// Описание отдаётся как приехало, с разметкой источника: разбирает её
-// core/rich-text.ts на слое показа. Прежде теги вырезались здесь, и вместе
-// с ними терялись ссылки на другие тайтлы, спойлеры и начертания.
-//
-// Карточка Шикимори берётся через общего добытчика (shikimori-media.ts):
-// оценки площадок грузятся рядом и просят ту же самую запись, а раньше
-// каждый ходил за ней сам — два одинаковых запроса на одно открытие тайтла.
+// Описание отдаётся с разметкой источника, разбирает её core/rich-text.ts; настройки читаются при вызове.
 
 import { settings } from '../core/settings'
 import { fetchShikiAnime } from './shikimori-media'
@@ -35,11 +26,7 @@ function textOrNull(value: string | null | undefined): string | null {
   return clean === '' ? null : clean
 }
 
-/**
- * Резолвит русское название и описание по цепочке источников.
- *
- * Адреса всегда анимешные: раздела манги у нас больше нет.
- */
+/** Резолвит русское название и описание по цепочке источников; адреса всегда анимешные — раздела манги у нас больше нет. */
 export async function resolveTitle(malId: number | null): Promise<ResolvedTitle | null> {
   const order = [...new Set([settings.titlePrimary, settings.titleFallback])].filter(
     (src) => src && src !== 'off' && src !== 'none',
@@ -47,8 +34,7 @@ export async function resolveTitle(malId: number | null): Promise<ResolvedTitle 
 
   for (const src of order) {
     if (src === 'shikimori') {
-      // Без номера MAL спрашивать не по чему: прежде такой вызов уезжал
-      // за `/api/animes/null` и тратил чужой бюджет ради гарантированного 404.
+      // Без номера MAL спрашивать не по чему: такой вызов уезжал бы за `/api/animes/null`.
       if (malId === null) continue
 
       const shiki = await fetchShikiAnime(malId)

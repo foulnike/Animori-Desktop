@@ -1,7 +1,7 @@
 # По умолчанию Git сам определяет текстовые файлы.
 * text=auto
 
-# Исходники проекта хранятся в LF (Prettier также пишет LF).
+# Исходники проекта хранятся в LF.
 *.ts   text eol=lf
 *.vue  text eol=lf
 *.scss text eol=lf

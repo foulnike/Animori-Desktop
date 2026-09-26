@@ -14,7 +14,6 @@
     "typecheck:shared": "vue-tsc --noEmit -p tsconfig.shared.json",
     "typecheck:all": "npm run typecheck:shared && vue-tsc --noEmit",
     "test": "vitest run",
-    "format": "prettier --write \"src/**/*.{ts,vue,scss}\" \"*.{ts,json,md}\"",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"
@@ -32,8 +31,6 @@
     "@types/node": "^26.1.2",
     "@vitejs/plugin-vue": "^5.2.1",
     "happy-dom": "^20.12.0",
-    "prettier": "^3.3.3",
-    "sass": "^1.79.4",
     "typescript": "^5.6.2",
     "vite": "^5.4.8",
     "vitest": "^4.1.11",

@@ -1,14 +1,15 @@
-// Проверки выгрузки списка в XML экспорта MyAnimeList.
-//
-// Модуль чистый: ни сети, ни диска, ни DOM — потому заглушки не нужны
-// вовсе. Путь к модулю относительный, а не через @/: тест не должен
-// зависеть от настройки псевдонимов сборщика.
-//
-// Смотрим именно там, где формат теряет смысл или ломается целиком.
+// Проверки выгрузки списка в XML экспорта MyAnimeList и обратного разбора (разборщик — настоящий DOMParser из happy-dom).
+// Путь к модулю относительный: тест не должен зависеть от псевдонимов сборщика.
 
 import { describe, expect, it } from 'vitest'
 
-import { buildMalXml, malDate, malScore, malStatus } from '../src/shared/core/mal-xml'
+import {
+  buildMalXml,
+  malDate,
+  malScore,
+  malStatus,
+  parseMalXml,
+} from '../src/shared/core/mal-xml'
 
 import type { SnapshotEntry } from '../src/shared/core/snapshot'
 
@@ -198,5 +199,165 @@ describe('buildMalXml', () => {
     expect(done.xml).toContain('<user_total_anime>0</user_total_anime>')
     expect(done.xml).toContain('</myanimelist>')
     expect(done.xml).not.toContain('<anime>')
+  })
+})
+
+describe('parseMalXml', () => {
+  it('читает обратно свою же выгрузку, включая метку правки', () => {
+    const built = buildMalXml({
+      entries: [
+        entry({
+          malId: 21,
+          status: 'COMPLETED',
+          score10: 8,
+          progress: 12,
+          repeat: 3,
+          startedAt: '2025-03-04',
+          completedAt: '2025-04-01',
+          notes: 'отлично',
+          updatedAt: 1700000000000,
+        }),
+      ],
+    })
+
+    const got = parseMalXml(built.xml)
+
+    expect(got.noId).toBe(0)
+    expect(got.oddStatus).toEqual([])
+    expect(got.rows).toEqual([
+      {
+        malId: 21,
+        title: 'English Name',
+        status: 'COMPLETED',
+        score10: 8,
+        progress: 12,
+        repeat: 3,
+        startedAt: '2025-03-04',
+        completedAt: '2025-04-01',
+        notes: 'отлично',
+        updatedAt: 1700000000000,
+      },
+    ])
+  })
+
+  it('ест выгрузку Шикимори: без CDATA, без метки правки, со своим тегом', () => {
+    // Обломок настоящего файла Шикимори: поля те же, что у MAL, но CDATA
+    // нет, my_last_updated нет вовсе, а статус дублируется в shiki_status.
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<myanimelist>
+  <myinfo>
+    <user_id>331301</user_id>
+    <user_name>foulnike</user_name>
+    <user_export_type>1</user_export_type>
+    <user_total_anime>1</user_total_anime>
+  </myinfo>
+  <anime>
+    <series_animedb_id>21</series_animedb_id>
+    <series_title>One Piece</series_title>
+    <series_type></series_type>
+    <series_episodes></series_episodes>
+    <my_id>0</my_id>
+    <my_watched_episodes>1100</my_watched_episodes>
+    <my_start_date>0000-00-00</my_start_date>
+    <my_finish_date>0000-00-00</my_finish_date>
+    <my_rated></my_rated>
+    <my_score>9</my_score>
+    <my_storage></my_storage>
+    <my_status>Watching</my_status>
+    <shiki_status>watching</shiki_status>
+    <my_comments/>
+    <my_times_watched>0</my_times_watched>
+    <my_rewatch_value></my_rewatch_value>
+    <my_priority></my_priority>
+    <my_tags></my_tags>
+    <my_discuss>1</my_discuss>
+    <update_on_import>1</update_on_import>
+  </anime>
+</myanimelist>`
+
+    const got = parseMalXml(xml)
+
+    expect(got.rows).toEqual([
+      {
+        malId: 21,
+        title: 'One Piece',
+        status: 'CURRENT',
+        score10: 9,
+        progress: 1100,
+        repeat: 0,
+        startedAt: null,
+        completedAt: null,
+        notes: null,
+        updatedAt: 0,
+      },
+    ])
+  })
+
+  it('слова статуса читает без оглядки на регистр', () => {
+    const xml = `<?xml version="1.0"?>
+<myanimelist>
+  <anime>
+    <series_animedb_id>1</series_animedb_id>
+    <series_title>A</series_title>
+    <my_status>plan to watch</my_status>
+  </anime>
+  <anime>
+    <series_animedb_id>2</series_animedb_id>
+    <series_title>B</series_title>
+    <my_status>On-Hold</my_status>
+  </anime>
+</myanimelist>`
+
+    const got = parseMalXml(xml)
+
+    expect(got.rows.map((row) => row.status)).toEqual(['PLANNING', 'PAUSED'])
+  })
+
+  it('незнакомое слово статуса не роняет запись, а называет вслух', () => {
+    const xml = `<?xml version="1.0"?>
+<myanimelist>
+  <anime>
+    <series_animedb_id>1</series_animedb_id>
+    <series_title>A</series_title>
+    <my_status>Rewatching</my_status>
+  </anime>
+  <anime>
+    <series_animedb_id>2</series_animedb_id>
+    <series_title>B</series_title>
+    <my_status>rewatching</my_status>
+  </anime>
+</myanimelist>`
+
+    const got = parseMalXml(xml)
+
+    expect(got.rows.map((row) => row.status)).toEqual([null, null])
+    // Одно слово — одна запись в счёте, но регистр не поправляем:
+    // чужое слово человеку показывается как есть.
+    expect(got.oddStatus).toEqual(['Rewatching', 'rewatching'])
+  })
+
+  it('записи без номера MAL пропускает и считает: ключ формата', () => {
+    const xml = `<?xml version="1.0"?>
+<myanimelist>
+  <anime>
+    <series_animedb_id>0</series_animedb_id>
+    <series_title>Без номера</series_title>
+    <my_status>Completed</my_status>
+  </anime>
+  <anime>
+    <series_title>И вовсе без тега</series_title>
+    <my_status>Completed</my_status>
+  </anime>
+</myanimelist>`
+
+    const got = parseMalXml(xml)
+
+    expect(got.rows).toEqual([])
+    expect(got.noId).toBe(2)
+  })
+
+  it('битый файл и чужой корень отклоняет ошибкой, а не пустым списком', () => {
+    expect(() => parseMalXml('это вовсе не xml')).toThrow()
+    expect(() => parseMalXml('<html><body>привет</body></html>')).toThrow(/MyAnimeList/)
   })
 })

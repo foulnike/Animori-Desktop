@@ -1,21 +1,9 @@
-// Выгрузка списка в XML экспорта MyAnimeList: единственный формат обмена,
-// который принимают чужие сервисы — Шикимори, AniList, Kitsu и сам MAL.
-//
-// Ни сети, ни диска, ни моста здесь нет: на входе записи, на выходе строка.
-// Сохранение файла — забота экрана, а не этого модуля.
-//
-// Главная оговорка формата: он ключуется номером MAL, а список живёт на
-// номерах AniList. Запись без номера MAL выразить нечем вовсе, и такие
-// возвращаются поимённо: молча пропустить часть списка хуже, чем сказать,
-// что именно не уехало.
+// Выгрузка списка в XML экспорта MyAnimeList и разбор такого же файла (его же отдаёт Шикимори):
+// ключ формата — номер MAL; без номера запись выразить нечем и она возвращается поимённо.
 
 import type { SnapshotEntry } from './snapshot'
 
-/**
- * Закладки AniList в слова MAL. Пересмотра у MAL нет вовсе, и он идёт
- * как «Watching»: число пересмотров всё равно едет своим полем ниже,
- * так что смысл теряется не целиком.
- */
+/** Закладки AniList в слова MAL: пересмотра у MAL нет — он идёт как «Watching», число едет полем ниже. */
 const STATUS_WORDS: Readonly<Record<string, string>> = {
   CURRENT: 'Watching',
   REPEATING: 'Watching',
@@ -43,29 +31,18 @@ export interface MalXmlResult {
   xml: string
   /** Сколько записей легло в выгрузку. */
   exported: number
-  /**
-   * Названия записей без номера MAL. Их формат выразить не может:
-   * либо связи не знает сам AniList, либо запись старее того дня, когда
-   * номер MAL стал приезжать со списком — тогда поможет перенос списка.
-   */
+  /** Названия записей без номера MAL: формат их выразить не может, они возвращаются поимённо. */
   noMalId: string[]
   /** Записей без закладки: в списке их нет, выгружать нечего. */
   noStatus: number
 }
 
-/**
- * Заворачивает вольный текст в CDATA. Закрывающая скобка внутри текста
- * разрезается на два блока: без этого комментарий со «]]>» рвёт весь файл,
- * и импортер на чужой стороне отказывается от выгрузки целиком.
- */
+/** Заворачивает текст в CDATA; «]]>» внутри разрезается, иначе рвётся весь файл. */
 function cdata(value: string): string {
   return `<![CDATA[${value.split(']]>').join(']]]]><![CDATA[>')}]]>`
 }
 
-/**
- * Закладка словом MAL. Незнакомая закладка считается отсутствием:
- * придуманная замена разложила бы список на чужом сервисе тихо.
- */
+/** Закладка словом MAL; незнакомая — отсутствие, иначе список на чужом сервисе лёг бы тихо не так. */
 export function malStatus(status: string | null): string | null {
   if (status === null || status === '') return null
   return STATUS_WORDS[status] ?? null
@@ -77,10 +54,7 @@ export function malDate(value: string | null): string {
   return value
 }
 
-/**
- * Оценка целым баллом 0..10. У нас шкала с десятыми, у MAL целые:
- * десятые теряются, и это ограничение формата, а не небрежность.
- */
+/** Оценка целым баллом 0..10: у MAL целые, десятые теряются — ограничение формата. */
 export function malScore(score10: number): number {
   if (!Number.isFinite(score10) || score10 <= 0) return 0
   return Math.min(10, Math.max(0, Math.round(score10)))
@@ -92,13 +66,7 @@ function titleOf(entry: SnapshotEntry): string {
 }
 
 /**
- * Собирает выгрузку. Порядок записей — по номеру MAL, а не как пришли:
- * две выгрузки одного списка должны совпадать байт в байт, иначе их нечем
- * сравнить между собой.
- *
- * Поля выбраны по тому, что правда есть в снимке. Числа серий тайтла
- * в снимке нет, и поле series_episodes не пишется вовсе: выдуманный ноль
- * читался бы как «серий ноль», а не как «не знаю».
+ * Собирает выгрузку; порядок — по номеру MAL, чтобы две выгрузки совпадали байт в байт; series_episodes не пишем.
  */
 export function buildMalXml(input: MalXmlInput): MalXmlResult {
   const rows: SnapshotEntry[] = []
@@ -147,6 +115,11 @@ export function buildMalXml(input: MalXmlInput): MalXmlResult {
     parts.push(`    <my_status>${status}</my_status>`)
     parts.push(`    <my_times_watched>${Math.max(0, Math.round(entry.repeat))}</my_times_watched>`)
     parts.push(`    <my_comments>${cdata(entry.notes ?? '')}</my_comments>`)
+    // Метка правки едет тоже: без неё обратный ввоз нашей же выгрузки счёл бы
+    // записи старейшими, и слияние не подновило бы ими даже чужое свежее.
+    if (entry.updatedAt > 0) {
+      parts.push(`    <my_last_updated>${Math.floor(entry.updatedAt / 1000)}</my_last_updated>`)
+    }
     // Без этого поля импортёр MAL пропускает уже известные ему записи
     // вместо того, чтобы подновить их нашими числами.
     parts.push('    <update_on_import>1</update_on_import>')
@@ -163,12 +136,128 @@ export function buildMalXml(input: MalXmlInput): MalXmlResult {
   }
 }
 
-/**
- * Имя файла выгрузки с днём внутри: папка загрузок через полгода иначе
- * содержит пять файлов с одним именем и номерками в скобках.
- */
+/** Имя файла с днём внутри: иначе папка загрузок копит пять файлов с одним именем. */
 export function malXmlFileName(now: Date = new Date()): string {
   const pad = (value: number): string => (value < 10 ? `0${value}` : String(value))
   const day = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
   return `animori-anime-${day}.xml`
 }
+
+/**
+ * Слова MAL обратно в закладки; регистр в чужих выгрузках не договорён — сравнение строчными.
+ * Незнакомое слово не теряет запись: статус уходит в null, само слово — в oddStatus.
+ */
+const STATUS_FROM_MAL: Readonly<Record<string, string>> = {
+  watching: 'CURRENT',
+  completed: 'COMPLETED',
+  'on-hold': 'PAUSED',
+  dropped: 'DROPPED',
+  'plan to watch': 'PLANNING',
+}
+
+/** Одна запись чужого списка в наших словах. Номера AniList здесь ещё нет. */
+export interface MalXmlRow {
+  /** Номер MAL — ключ формата и мост к AniList. */
+  malId: number
+  /** Название из выгрузки: для весточки о потерях, не для показа. */
+  title: string
+  /** Закладка AniList или null при незнакомом слове статуса. */
+  status: string | null
+  /** Оценка по шкале 0..10. Ноль — «не оценено». */
+  score10: number
+  progress: number
+  repeat: number
+  startedAt: string | null
+  completedAt: string | null
+  notes: string | null
+  /** Метка правки в миллисекундах; у выгрузки Шикимори её нет — тогда ноль, запись считается старейшей. */
+  updatedAt: number
+}
+
+/** Итог разбора: записи и честный счёт того, что прочитать не удалось. */
+export interface MalXmlList {
+  rows: MalXmlRow[]
+  /** Записей без номера MAL: ключ формата, без него запись не свести. */
+  noId: number
+  /** Незнакомые слова статуса, по одному разу каждое. */
+  oddStatus: string[]
+}
+
+/** Текст тега записи; именно getElementsByTagName — подчёркивания в именах не всякий селектор терпит. */
+function tagOf(el: Element, name: string): string {
+  return el.getElementsByTagName(name)[0]?.textContent?.trim() ?? ''
+}
+
+/** Целое из текста тега: пусто и мусор читаются как ноль. */
+function intOf(el: Element, name: string): number {
+  const n = Number(tagOf(el, name))
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0
+}
+
+/** Дата ГГГГ-ММ-ДД или null. «0000-00-00» — тоже «даты нет», как при сборке. */
+function dateOf(el: Element, name: string): string | null {
+  const raw = tagOf(el, name)
+  return DATE_SHAPE.test(raw) && raw !== NO_DATE ? raw : null
+}
+
+/**
+ * Разворачивает CDATA в экранированный текст до разбора: разбор перестаёт зависеть от того, умеет ли разборщик.
+ */
+function uncdata(xml: string): string {
+  return xml.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, (_all, text: string) =>
+    text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'),
+  )
+}
+
+/**
+ * Разбирает выгрузку MAL/Шикимори; битый файл и чужой корень — ошибка, а не пустой список.
+ */
+export function parseMalXml(xml: string): MalXmlList {
+  const doc = new DOMParser().parseFromString(uncdata(xml), 'text/xml')
+
+  if (doc.querySelector('parsererror') !== null) {
+    throw new Error('Файл не читается как XML. Возможно, он испорчен или это не выгрузка списка.')
+  }
+
+  const root = doc.documentElement
+  if (!root || root.tagName !== 'myanimelist') {
+    throw new Error('Это не выгрузка MyAnimeList: в файле нет списка аниме.')
+  }
+
+  const rows: MalXmlRow[] = []
+  const oddStatus: string[] = []
+  let noId = 0
+
+  for (const el of Array.from(root.getElementsByTagName('anime'))) {
+    const malId = intOf(el, 'series_animedb_id')
+    if (malId <= 0) {
+      noId += 1
+      continue
+    }
+
+    const statusWord = tagOf(el, 'my_status')
+    const status = STATUS_FROM_MAL[statusWord.toLowerCase()] ?? null
+    if (status === null && statusWord !== '' && !oddStatus.includes(statusWord)) {
+      oddStatus.push(statusWord)
+    }
+
+    const notes = tagOf(el, 'my_comments')
+    const stamp = Number(tagOf(el, 'my_last_updated'))
+
+    rows.push({
+      malId,
+      title: tagOf(el, 'series_title'),
+      status,
+      score10: intOf(el, 'my_score'),
+      progress: intOf(el, 'my_watched_episodes'),
+      repeat: intOf(el, 'my_times_watched'),
+      startedAt: dateOf(el, 'my_start_date'),
+      completedAt: dateOf(el, 'my_finish_date'),
+      notes: notes === '' ? null : notes,
+      updatedAt: Number.isFinite(stamp) && stamp > 0 ? Math.floor(stamp) * 1000 : 0,
+    })
+  }
+
+  return { rows, noId, oddStatus }
+}
+

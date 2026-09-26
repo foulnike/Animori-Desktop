@@ -7,10 +7,11 @@ dist/
 dist-tauri/
 *.local
 
-# Tauri (Этап 4)
+# Tauri (Этап 4). Здесь только target: дублирование дешёвое, а цена
+# случайной фиксации собранных артефактов — гигабайты. Точные правила про
+# схемы и разрешения — в src-tauri/.gitignore: широкое «src-tauri/permissions/»
+# закрыло бы и будущие рукописные разрешения, а «src-tauri/gen/» — gen/android.
 src-tauri/target/
-src-tauri/gen/
-src-tauri/permissions/
 
 # Логи
 *.log
@@ -31,9 +32,6 @@ vite.config.ts.timestamp-*.mjs
 .idea/
 .DS_Store
 Thumbs.db
-
-# Рабочие заметки инструмента: память проекта, а не его исходники
-.workbuddy-ai/
 
 # Секреты (токены подписи обновлений Tauri и пр.)
 .env
